@@ -707,9 +707,8 @@ static void merge_xc(double *dst, double *ebuf, double *vbuf,
         }
 }
 
-void LIBXC_set_param(xc_func_type *func, double param_value, const char *param_name) {
+bool LIBXC_found_param(xc_func_type *func, const char *param_name) {
     const int num_parameters = xc_func_info_get_n_ext_params(func->info);
-    printf("num_parameters: %d\n", num_parameters);
     char *param_name_array[num_parameters];
     double param_default_values[num_parameters];
     for (int i = 0; i < num_parameters; ++i) {
@@ -717,8 +716,28 @@ void LIBXC_set_param(xc_func_type *func, double param_value, const char *param_n
         param_name_array[i] = malloc(strlen(current_param_name));
         strcpy(param_name_array[i], current_param_name);
         param_default_values[i] = xc_func_info_get_ext_params_default_value(func->info, i);
-        printf("param_name: %s, ", current_param_name);
-        printf("param_value: %f\n", param_default_values[i]);
+    }
+    bool found_key = false;
+    int i = 0;
+    while (!found_key && i < num_parameters) {
+        const char* current_param_name = param_name_array[i];
+        if (strcmp(param_name, current_param_name) == 0) {
+            found_key = true;
+        }
+        ++i;
+    }
+    return found_key;
+}
+
+void LIBXC_set_param(xc_func_type *func, double param_value, const char *param_name) {
+    const int num_parameters = xc_func_info_get_n_ext_params(func->info);
+    char *param_name_array[num_parameters];
+    double param_default_values[num_parameters];
+    for (int i = 0; i < num_parameters; ++i) {
+        const char *current_param_name = xc_func_info_get_ext_params_name(func->info, i);
+        param_name_array[i] = malloc(strlen(current_param_name));
+        strcpy(param_name_array[i], current_param_name);
+        param_default_values[i] = xc_func_info_get_ext_params_default_value(func->info, i);
     }
 
     bool found_key = false;
@@ -731,8 +750,6 @@ void LIBXC_set_param(xc_func_type *func, double param_value, const char *param_n
             found_key = true;
             param_updated_values[i] = param_value;
         }
-        printf("param_name: %s, ", current_param_name);
-        printf("param_value: %f\n", param_updated_values[i]);
         ++i;
     }
 
@@ -786,17 +803,10 @@ void LIBXC_eval_xc(int nfn, int *fn_id, double *fac, double *omega,
                         // skip if func is not a RSH functional
 #if XC_MAJOR_VERSION < 6
                         if (func.cam_omega != 0) {
-//                                func.cam_omega = omega[i];
+                                func.cam_omega = omega[i];
+                        }
+                        else if (LIBXC_found_param(&func, "_omega")) {
                                 LIBXC_set_param(&func, omega[i], "_omega");
-                                double *params = (double *) (func.params);
-                                printf("params[0]: %f\n", params[0]);
-                                printf("params[1]: %f\n", params[1]);
-                                printf("params[2]: %f\n", params[2]);
-                                printf("params[3]: %f\n", params[3]);
-                                printf("params[4]: %f\n", params[4]);
-                                printf("params[5]: %f\n", params[5]);
-                                printf("params[6] (a.k.a. _omega): %f\n", params[6]);
-                                printf("func.cam_omega: %f\n", func.cam_omega);
                         }
 #else
                         if (func.hyb_omega[0] != 0) {
